@@ -41,8 +41,6 @@
 
 #include "ControlAllocator.hpp"
 
-#include <ActuatorEffectivenessHelicopterDual.hpp>
-
 #include <drivers/drv_hrt.h>
 #include <circuit_breaker/circuit_breaker.h>
 #include <mathlib/math/Limits.hpp>
