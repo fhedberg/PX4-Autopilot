@@ -66,6 +66,7 @@ ActuatorEffectivenessHelicopter::ActuatorEffectivenessHelicopter(ModuleParams *p
 	_param_handles.yaw_ccw = param_find("CA_HELI_YAW_CCW");
 	_param_handles.spoolup_time = param_find("COM_SPOOLUP_TIME");
 	_param_handles.max_servo_throw = param_find("CA_MAX_SVO_THROW");
+	_param_handles.throttle_idle = param_find("CA_HELI_THR_IDLE");
 
 	updateParams();
 }
@@ -99,6 +100,7 @@ void ActuatorEffectivenessHelicopter::updateParams()
 	param_get(_param_handles.yaw_collective_pitch_offset, &_geometry.yaw_collective_pitch_offset);
 	param_get(_param_handles.yaw_throttle_scale, &_geometry.yaw_throttle_scale);
 	param_get(_param_handles.spoolup_time, &_geometry.spoolup_time);
+	param_get(_param_handles.throttle_idle, &_geometry.throttle_idle);
 	int32_t yaw_ccw = 0;
 	param_get(_param_handles.yaw_ccw, &yaw_ccw);
 	_geometry.yaw_sign = (yaw_ccw == 1) ? -1.f : 1.f;
@@ -148,16 +150,17 @@ void ActuatorEffectivenessHelicopter::updateSetpoint(const matrix::Vector<float,
 {
 	_saturation_flags = {};
 
-	const float spoolup_progress = throttleSpoolupProgress();
+	updateSpoolState();
 	float rpm_control_output = 0;
 #if CONTROL_ALLOCATOR_RPM_CONTROL
-	_rpm_control.setSpoolupProgress(spoolup_progress);
+	_rpm_control.setSpoolupProgress(_spool_state == SpoolState::THROTTLE_UNLIMITED ? 1.f : 0.f);
 	rpm_control_output = _rpm_control.getActuatorCorrection();
 #endif // CONTROL_ALLOCATOR_RPM_CONTROL
 
 	// throttle/collective pitch curve
-	const float throttle = (math::interpolateN(-control_sp(ControlAxis::THRUST_Z), _geometry.throttle_curve)
-				+ rpm_control_output) * spoolup_progress;
+	const float commanded_throttle = math::interpolateN(-control_sp(ControlAxis::THRUST_Z), _geometry.throttle_curve)
+					 + rpm_control_output;
+	const float throttle = spoolupThrottle(commanded_throttle);
 	const float collective_pitch = math::interpolateN(-control_sp(ControlAxis::THRUST_Z), _geometry.pitch_curve);
 
 	// actuator mapping
@@ -193,6 +196,17 @@ void ActuatorEffectivenessHelicopter::updateSetpoint(const matrix::Vector<float,
 			setSaturationFlag(pitch_coeff, _saturation_flags.pitch_pos, _saturation_flags.pitch_neg);
 		}
 	}
+
+	// Publish helicopter status
+	helicopter_status_s heli_status{};
+	heli_status.timestamp = hrt_absolute_time();
+	heli_status.spool_state = static_cast<uint8_t>(_spool_state);
+	heli_status.throttle_output = throttle;
+	heli_status.spoolup_progress = (_spool_state == SpoolState::THROTTLE_UNLIMITED) ? 1.f :
+				       (_spool_state == SpoolState::SPOOLING_UP) ?
+				       math::constrain((hrt_absolute_time() - _armed_time) / 1e6f / _geometry.spoolup_time, 0.f, 1.f) :
+				       0.f;
+	_helicopter_status_pub.publish(heli_status);
 }
 
 bool ActuatorEffectivenessHelicopter::mainMotorEnaged()
@@ -207,23 +221,90 @@ bool ActuatorEffectivenessHelicopter::mainMotorEnaged()
 	return _main_motor_engaged;
 }
 
-float ActuatorEffectivenessHelicopter::throttleSpoolupProgress()
+void ActuatorEffectivenessHelicopter::updateSpoolState()
 {
 	vehicle_status_s vehicle_status;
 
 	if (_vehicle_status_sub.update(&vehicle_status)) {
+		const bool was_armed = _armed;
 		_armed = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED;
 		_armed_time = vehicle_status.armed_time;
+
+		if (_armed && !was_armed) {
+			_spool_state = SpoolState::GROUND_IDLE;
+
+		} else if (!_armed && was_armed) {
+			_spool_state = SpoolState::SPOOLING_DOWN;
+		}
+	}
+
+	if (!_armed) {
+		if (_spool_state == SpoolState::SPOOLING_DOWN) {
+			const float time_since_disarm = (hrt_absolute_time() - _armed_time) / 1e6f;
+
+			if (time_since_disarm > _geometry.spoolup_time) {
+				_spool_state = SpoolState::SHUT_DOWN;
+			}
+
+		} else {
+			_spool_state = SpoolState::SHUT_DOWN;
+		}
+
+		return;
 	}
 
 	const float time_since_arming = (hrt_absolute_time() - _armed_time) / 1e6f;
-	const float spoolup_progress = time_since_arming / _geometry.spoolup_time;
 
-	if (_armed && spoolup_progress < 1.f) {
-		return spoolup_progress;
+	switch (_spool_state) {
+	case SpoolState::SHUT_DOWN:
+		_spool_state = SpoolState::GROUND_IDLE;
+		break;
+
+	case SpoolState::GROUND_IDLE:
+		if (mainMotorEnaged()) {
+			_spool_state = SpoolState::SPOOLING_UP;
+		}
+
+		break;
+
+	case SpoolState::SPOOLING_UP:
+		if (time_since_arming >= _geometry.spoolup_time) {
+			_spool_state = SpoolState::THROTTLE_UNLIMITED;
+		}
+
+		break;
+
+	case SpoolState::THROTTLE_UNLIMITED:
+		break;
+
+	case SpoolState::SPOOLING_DOWN:
+		break;
+	}
+}
+
+float ActuatorEffectivenessHelicopter::spoolupThrottle(float commanded_throttle)
+{
+	switch (_spool_state) {
+	case SpoolState::SHUT_DOWN:
+		return 0.f;
+
+	case SpoolState::GROUND_IDLE:
+		return _geometry.throttle_idle;
+
+	case SpoolState::SPOOLING_UP: {
+		const float time_since_arming = (hrt_absolute_time() - _armed_time) / 1e6f;
+		const float progress = math::constrain(time_since_arming / _geometry.spoolup_time, 0.f, 1.f);
+		return commanded_throttle * progress;
 	}
 
-	return 1.f;
+	case SpoolState::THROTTLE_UNLIMITED:
+		return commanded_throttle;
+
+	case SpoolState::SPOOLING_DOWN:
+		return _geometry.throttle_idle;
+	}
+
+	return 0.f;
 }
 
 

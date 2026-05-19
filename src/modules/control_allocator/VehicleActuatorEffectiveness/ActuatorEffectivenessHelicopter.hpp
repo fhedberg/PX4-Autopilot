@@ -37,7 +37,9 @@
 
 #include <px4_platform_common/module_params.h>
 
+#include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/topics/helicopter_status.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/manual_control_switches.h>
 
@@ -50,6 +52,14 @@ public:
 
 	static constexpr int NUM_SWASH_PLATE_SERVOS_MAX = 4;
 	static constexpr int NUM_CURVE_POINTS = 5;
+
+	enum class SpoolState : uint8_t {
+		SHUT_DOWN = 0,
+		GROUND_IDLE,
+		SPOOLING_UP,
+		THROTTLE_UNLIMITED,
+		SPOOLING_DOWN,
+	};
 
 	struct SwashPlateGeometry {
 		float angle;
@@ -67,6 +77,7 @@ public:
 		float yaw_throttle_scale;
 		float yaw_sign;
 		float spoolup_time;
+		float throttle_idle;
 	};
 
 	ActuatorEffectivenessHelicopter(ModuleParams *parent, ActuatorType tail_actuator_type);
@@ -84,7 +95,8 @@ public:
 
 	void getUnallocatedControl(int matrix_index, control_allocator_status_s &status) override;
 private:
-	float throttleSpoolupProgress();
+	void updateSpoolState();
+	float spoolupThrottle(float commanded_throttle);
 	bool mainMotorEnaged();
 
 	void updateParams() override;
@@ -117,6 +129,7 @@ private:
 		param_t yaw_ccw;
 		param_t spoolup_time;
 		param_t max_servo_throw;
+		param_t throttle_idle;
 	};
 	ParamHandles _param_handles{};
 
@@ -126,8 +139,10 @@ private:
 	int _first_swash_plate_servo_index{};
 	SaturationFlags _saturation_flags;
 
-	// Throttle spoolup state
+	// Spool state machine
+	SpoolState _spool_state{SpoolState::SHUT_DOWN};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::Publication<helicopter_status_s> _helicopter_status_pub{ORB_ID(helicopter_status)};
 	bool _armed{false};
 	uint64_t _armed_time{0};
 

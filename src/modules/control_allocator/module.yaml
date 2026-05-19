@@ -607,6 +607,17 @@ parameters:
           min: 0
           max: 75
           default: 0.0
+        CA_HELI_THR_IDLE:
+          description:
+            short: Idle throttle output for helicopter
+            long: |
+              Throttle output when in ground idle state (armed but rotor not at flight speed).
+          type: float
+          decimal: 3
+          increment: 0.01
+          min: 0
+          max: 0.3
+          default: 0.05
 
         # Others
         CA_FAILURE_MODE:
