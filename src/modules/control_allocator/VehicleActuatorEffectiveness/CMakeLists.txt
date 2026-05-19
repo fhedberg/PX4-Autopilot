@@ -11,6 +11,8 @@ px4_add_library(VehicleActuatorEffectiveness
 	ActuatorEffectivenessHelicopter.hpp
 	ActuatorEffectivenessHelicopterCoaxial.cpp
 	ActuatorEffectivenessHelicopterCoaxial.hpp
+	ActuatorEffectivenessHelicopterDual.cpp
+	ActuatorEffectivenessHelicopterDual.hpp
 	HeliSwashplate.cpp
 	HeliSwashplate.hpp
 	ActuatorEffectivenessMCTilt.cpp
@@ -45,3 +47,4 @@ target_link_libraries(VehicleActuatorEffectiveness
 px4_add_functional_gtest(SRC ActuatorEffectivenessHelicopterTest.cpp LINKLIBS VehicleActuatorEffectiveness)
 px4_add_functional_gtest(SRC ActuatorEffectivenessRotorsTest.cpp LINKLIBS VehicleActuatorEffectiveness)
 px4_add_functional_gtest(SRC HeliSwashplateTest.cpp LINKLIBS VehicleActuatorEffectiveness)
+px4_add_functional_gtest(SRC ActuatorEffectivenessHelicopterDualTest.cpp LINKLIBS VehicleActuatorEffectiveness)
