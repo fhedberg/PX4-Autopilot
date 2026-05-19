@@ -120,6 +120,7 @@ set(msg_files
 	Gripper.msg
 	HealthReport.msg
 	HeaterStatus.msg
+	HelicopterStatus.msg
 	HoverThrustEstimate.msg
 	InputRc.msg
 	InternalCombustionEngineControl.msg
