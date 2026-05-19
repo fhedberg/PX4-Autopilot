@@ -105,18 +105,18 @@ void ActuatorEffectivenessHelicopter::updateParams()
 	float max_servo_throw_deg = 0.f;
 	param_get(_param_handles.max_servo_throw, &max_servo_throw_deg);
 
-	if (max_servo_throw_deg > 0.f) {
-		// linearization feature enabled
-		_geometry.linearize_servos = 1;
-		const float max_servo_throw = math::radians(max_servo_throw_deg);
-		_geometry.max_servo_height = sinf(max_servo_throw);
-		_geometry.inverse_max_servo_throw = 1.f / max_servo_throw;
+	// Populate swashplate geometry
+	HeliSwashplate::Geometry swash_geo{};
 
-	} else {
-		// handle any undefined behaviour if disabled
-		_geometry.linearize_servos = 0;
-		_geometry.max_servo_height = _geometry.inverse_max_servo_throw = 0.f;
+	for (int i = 0; i < _geometry.num_swash_plate_servos; ++i) {
+		swash_geo.servos[i].angle_deg = math::degrees(_geometry.swash_plate_servos[i].angle);
+		swash_geo.servos[i].arm_length = _geometry.swash_plate_servos[i].arm_length;
+		swash_geo.servos[i].trim = _geometry.swash_plate_servos[i].trim;
 	}
+
+	swash_geo.count = _geometry.num_swash_plate_servos;
+	swash_geo.max_servo_throw_deg = max_servo_throw_deg;
+	_swashplate.setGeometry(swash_geo);
 }
 
 bool ActuatorEffectivenessHelicopter::getEffectivenessMatrix(Configuration &configuration,
@@ -175,40 +175,24 @@ void ActuatorEffectivenessHelicopter::updateSetpoint(const matrix::Vector<float,
 		setSaturationFlag(_geometry.yaw_sign, _saturation_flags.yaw_pos, _saturation_flags.yaw_neg);
 	}
 
+	_swashplate.mix(control_sp(ControlAxis::ROLL), control_sp(ControlAxis::PITCH),
+			collective_pitch, actuator_sp, _first_swash_plate_servo_index);
+
+	// Saturation check for roll & pitch (needs actuator_min/max, stays in parent)
 	for (int i = 0; i < _geometry.num_swash_plate_servos; i++) {
-		float roll_coeff = sinf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
-		float pitch_coeff = cosf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
-		actuator_sp(_first_swash_plate_servo_index + i) = collective_pitch
-				+ control_sp(ControlAxis::PITCH) * pitch_coeff
-				- control_sp(ControlAxis::ROLL) * roll_coeff
-				+ _geometry.swash_plate_servos[i].trim;
-
-		// Apply linearization to the actuator setpoint if enabled
-		if (_geometry.linearize_servos) {
-			actuator_sp(_first_swash_plate_servo_index + i) = getLinearServoOutput(actuator_sp(_first_swash_plate_servo_index + i));
-		}
-
-		// Saturation check for roll & pitch
 		if (actuator_sp(_first_swash_plate_servo_index + i) < actuator_min(_first_swash_plate_servo_index + i)) {
+			float roll_coeff = sinf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
+			float pitch_coeff = cosf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
 			setSaturationFlag(roll_coeff, _saturation_flags.roll_pos, _saturation_flags.roll_neg);
 			setSaturationFlag(pitch_coeff, _saturation_flags.pitch_neg, _saturation_flags.pitch_pos);
 
 		} else if (actuator_sp(_first_swash_plate_servo_index + i) > actuator_max(_first_swash_plate_servo_index + i)) {
+			float roll_coeff = sinf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
+			float pitch_coeff = cosf(_geometry.swash_plate_servos[i].angle) * _geometry.swash_plate_servos[i].arm_length;
 			setSaturationFlag(roll_coeff, _saturation_flags.roll_neg, _saturation_flags.roll_pos);
 			setSaturationFlag(pitch_coeff, _saturation_flags.pitch_pos, _saturation_flags.pitch_neg);
 		}
 	}
-}
-
-float ActuatorEffectivenessHelicopter::getLinearServoOutput(float input) const
-{
-	input = math::constrain(input, -1.f, 1.f);
-
-	// make sure a the maximal input of [-1,1] maps to the maximal vertical deflection the servo can reach of sin(CA_MAX_SVO_THROW)
-	float servo_height = _geometry.max_servo_height * input;
-
-	// mulitply by 1 over max arm roation in radians to normalise
-	return _geometry.inverse_max_servo_throw * asinf(servo_height);
 }
 
 bool ActuatorEffectivenessHelicopter::mainMotorEnaged()

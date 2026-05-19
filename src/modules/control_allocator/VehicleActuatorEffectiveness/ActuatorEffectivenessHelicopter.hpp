@@ -41,6 +41,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/manual_control_switches.h>
 
+#include "HeliSwashplate.hpp"
 #include "RpmControl.hpp"
 
 class ActuatorEffectivenessHelicopter : public ModuleParams, public ActuatorEffectiveness
@@ -66,9 +67,6 @@ public:
 		float yaw_throttle_scale;
 		float yaw_sign;
 		float spoolup_time;
-		int linearize_servos;
-		float max_servo_height;
-		float inverse_max_servo_throw;
 	};
 
 	ActuatorEffectivenessHelicopter(ModuleParams *parent, ActuatorType tail_actuator_type);
@@ -88,7 +86,6 @@ public:
 private:
 	float throttleSpoolupProgress();
 	bool mainMotorEnaged();
-	float getLinearServoOutput(float input) const;
 
 	void updateParams() override;
 
@@ -124,6 +121,7 @@ private:
 	ParamHandles _param_handles{};
 
 	Geometry _geometry{};
+	HeliSwashplate _swashplate;
 
 	int _first_swash_plate_servo_index{};
 	SaturationFlags _saturation_flags;
