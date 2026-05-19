@@ -179,25 +179,25 @@ bool ActuatorEffectivenessHelicopterDual::getEffectivenessMatrix(Configuration &
 		return false;
 	}
 
-	// As the allocation is non-linear, we use updateSetpoint() instead of the matrix.
-	// Register SP1 servos
-	_first_sp1_servo_index = configuration.num_actuators_matrix[0];
-
-	for (int i = 0; i < _sp1_count; ++i) {
-		configuration.addActuator(ActuatorType::SERVOS, Vector3f{}, Vector3f{});
-	}
-
-	// Register SP2 servos
-	for (int i = 0; i < _sp2_count; ++i) {
-		configuration.addActuator(ActuatorType::SERVOS, Vector3f{}, Vector3f{});
-	}
-
+	// Motors must be registered before servos.
 	// Throttle 1
 	configuration.addActuator(ActuatorType::MOTORS, Vector3f{}, Vector3f{});
 
 	// Throttle 2 (only if dual engine)
 	if (_dual_engine) {
 		configuration.addActuator(ActuatorType::MOTORS, Vector3f{}, Vector3f{});
+	}
+
+	// SP1 servos
+	_first_sp1_servo_index = configuration.num_actuators_matrix[0];
+
+	for (int i = 0; i < _sp1_count; ++i) {
+		configuration.addActuator(ActuatorType::SERVOS, Vector3f{}, Vector3f{});
+	}
+
+	// SP2 servos
+	for (int i = 0; i < _sp2_count; ++i) {
+		configuration.addActuator(ActuatorType::SERVOS, Vector3f{}, Vector3f{});
 	}
 
 	return true;
@@ -242,19 +242,17 @@ void ActuatorEffectivenessHelicopterDual::updateSetpoint(const matrix::Vector<fl
 		collective2 = collective - roll * _dcp_scaler;
 	}
 
+	// Throttle outputs (motors are before servos in actuator vector)
+	actuator_sp(0) = throttle;
+
+	if (_dual_engine) {
+		actuator_sp(1) = throttle;
+	}
+
+	// Swashplate servo outputs (after motors)
 	const int sp2_start = _first_sp1_servo_index + _sp1_count;
 	_swashplate1.mix(roll1, pitch1, collective1, actuator_sp, _first_sp1_servo_index);
 	_swashplate2.mix(roll2, pitch2, collective2, actuator_sp, sp2_start);
-
-	const int throttle1_idx = sp2_start + _sp2_count;
-	actuator_sp(throttle1_idx) = throttle;
-
-	if (_dual_engine) {
-		actuator_sp(throttle1_idx + 1) = throttle;
-
-	} else {
-		actuator_sp(throttle1_idx + 1) = NAN;
-	}
 
 	// Saturation checks for SP1 servos
 	for (int i = 0; i < _sp1_count; i++) {
