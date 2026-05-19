@@ -33,6 +33,8 @@ parameters:
                 13: Rover (Mecanum)
                 14: Spacecraft 2D
                 15: Spacecraft 3D
+                16: Helicopter (Dual Tandem)
+                17: Helicopter (Dual Transverse)
             default: 0
 
         CA_METHOD:
@@ -618,6 +620,74 @@ parameters:
           min: 0
           max: 0.3
           default: 0.05
+        CA_SP1_COUNT:
+            description:
+                short: Number of swash plate servos for second rotor
+            type: enum
+            values:
+                2: '2'
+                3: '3'
+                4: '4'
+            default: 3
+        CA_SP1_ANG${i}:
+            description:
+                short: Angle for second rotor swash plate servo ${i}
+                long: |
+                  The angle is measured clockwise (as seen from top), with 0 pointing forwards (X axis).
+            type: float
+            decimal: 0
+            increment: 10
+            unit: deg
+            num_instances: 4
+            min: 0
+            max: 360
+            default: [0, 140, 220, 0]
+        CA_SP1_ARM_L${i}:
+            description:
+                short: Arm length for second rotor swash plate servo ${i}
+                long: |
+                  This is relative to the other arm lengths.
+            type: float
+            decimal: 3
+            increment: 0.1
+            num_instances: 4
+            min: 0
+            max: 10
+            default: 1.0
+        CA_HELI_DCP_SC:
+          description:
+            short: Differential collective pitch scaler
+            long: |
+              Controls how aggressively differential collective pitch is used for pitch (tandem) or roll (transverse) control.
+              Higher values give stronger pitch/roll authority from differential collective but may cause asymmetric thrust.
+          type: float
+          decimal: 3
+          increment: 0.05
+          min: 0
+          max: 1
+          default: 0.25
+        CA_HELI_YAW_SC:
+          description:
+            short: Yaw scaler for dual helicopter
+            long: |
+              Controls the yaw authority via differential cyclic between the two rotors.
+          type: float
+          decimal: 3
+          increment: 0.1
+          min: 0
+          max: 2
+          default: 1.0
+        CA_HELI_DUAL_ENG:
+          description:
+            short: Dual helicopter engine configuration
+            long: |
+              0: single engine driving both rotors (one throttle output).
+              1: independent engines (two throttle outputs, required for tiltrotor composability).
+          type: enum
+          values:
+            0: Single engine
+            1: Independent engines
+          default: 0
 
         # Others
         CA_FAILURE_MODE:

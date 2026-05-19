@@ -41,6 +41,8 @@
 
 #include "ControlAllocator.hpp"
 
+#include <ActuatorEffectivenessHelicopterDual.hpp>
+
 #include <drivers/drv_hrt.h>
 #include <circuit_breaker/circuit_breaker.h>
 #include <mathlib/math/Limits.hpp>
@@ -260,7 +262,16 @@ ControlAllocator::update_effectiveness_source()
 			break;
 
 		case EffectivenessSource::SPACECRAFT_2D:
+		case EffectivenessSource::SPACECRAFT_3D:
 			tmp = new ActuatorEffectivenessSpacecraft(this);
+			break;
+
+		case EffectivenessSource::HELICOPTER_DUAL_TANDEM:
+			tmp = new ActuatorEffectivenessHelicopterDual(this, ActuatorEffectivenessHelicopterDual::DualMode::TANDEM);
+			break;
+
+		case EffectivenessSource::HELICOPTER_DUAL_TRANSVERSE:
+			tmp = new ActuatorEffectivenessHelicopterDual(this, ActuatorEffectivenessHelicopterDual::DualMode::TRANSVERSE);
 			break;
 
 		case EffectivenessSource::ROVER_ACKERMANN: // Unreachable: Rover startup scripts don't load control_allocator. Controllers publish actuator_outputs directly.
