@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# @name Generic Helicopter (Dual Transverse)
+#
+# @type Helicopter
+# @class Copter
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.heli_defaults
+
+param set-default MC_ROLLRATE_P 0
+param set-default MC_ROLLRATE_I 0
+param set-default MC_ROLLRATE_D 0
+param set-default MC_ROLLRATE_FF 0.1
+param set-default MC_PITCHRATE_P 0
+param set-default MC_PITCHRATE_I 0
+param set-default MC_PITCHRATE_D 0
+param set-default MC_PITCHRATE_FF 0.1
+param set-default MC_YAWRATE_P 0
+param set-default MC_YAWRATE_I 0
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0.1
+
+param set-default CA_AIRFRAME 17
+param set-default CA_HELI_DCP_SC 0.25
+param set-default CA_HELI_YAW_SC 1.0
+param set-default CA_HELI_DUAL_ENG 1
