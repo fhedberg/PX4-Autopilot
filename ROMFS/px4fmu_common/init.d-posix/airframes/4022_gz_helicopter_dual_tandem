@@ -1,0 +1,75 @@
+#!/bin/sh
+#
+# @name Gazebo Helicopter Dual Tandem
+#
+# @type Helicopter
+#
+
+. ${R}etc/init.d/rc.heli_defaults
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=helicopter_dual_tandem}
+
+param set-default SIM_GZ_EN 1
+
+param set-default CA_AIRFRAME 16
+
+# 2-servo simplified swashplate for SITL (pitch at 0deg, roll at 90deg)
+param set-default CA_SP0_COUNT 2
+param set-default CA_SP0_ANG0 0
+param set-default CA_SP0_ANG1 90
+param set-default CA_SP1_COUNT 2
+param set-default CA_SP1_ANG0 0
+param set-default CA_SP1_ANG1 90
+
+param set-default CA_HELI_DCP_SC 0.25
+param set-default CA_HELI_YAW_SC 1.0
+param set-default CA_HELI_DUAL_ENG 1
+
+# Throttle curve (flat 100% since motor constant sized for hover)
+param set-default CA_HELI_THR_C0 1
+param set-default CA_HELI_THR_C1 1
+param set-default CA_HELI_THR_C2 1
+param set-default CA_HELI_THR_C3 1
+param set-default CA_HELI_THR_C4 1
+
+# Collective pitch curve (linear)
+param set-default CA_HELI_PITCH_C0 -0.05
+param set-default CA_HELI_PITCH_C1 0.0725
+param set-default CA_HELI_PITCH_C2 0.2
+param set-default CA_HELI_PITCH_C3 0.325
+param set-default CA_HELI_PITCH_C4 0.45
+
+# Rate controller gains (start with FF only)
+param set-default MC_ROLLRATE_P 0
+param set-default MC_ROLLRATE_I 0
+param set-default MC_ROLLRATE_D 0
+param set-default MC_ROLLRATE_FF 0.1
+param set-default MC_PITCHRATE_P 0
+param set-default MC_PITCHRATE_I 0
+param set-default MC_PITCHRATE_D 0
+param set-default MC_PITCHRATE_FF 0.1
+param set-default MC_YAWRATE_P 0
+param set-default MC_YAWRATE_I 0
+param set-default MC_YAWRATE_D 0
+param set-default MC_YAWRATE_FF 0.1
+
+# Gazebo bridge: Servo mapping (servo outputs -> Gazebo joint position controllers)
+# Actuator output indices from ActuatorEffectivenessHelicopterDual:
+#   0-1: SP0 servos (front pitch, front roll)
+#   2-3: SP1 servos (rear pitch, rear roll)
+#   4: throttle 0 (front motor)
+#   5: throttle 1 (rear motor)
+param set-default SIM_GZ_SV_FUNC1 201
+param set-default SIM_GZ_SV_FUNC2 202
+param set-default SIM_GZ_SV_FUNC3 203
+param set-default SIM_GZ_SV_FUNC4 204
+
+param set-default SIM_GZ_EC_FUNC1 101
+param set-default SIM_GZ_EC_FUNC2 102
+
+param set-default SIM_GZ_EC_MIN1 10
+param set-default SIM_GZ_EC_MIN2 10
+param set-default SIM_GZ_EC_MAX1 1000
+param set-default SIM_GZ_EC_MAX2 1000
